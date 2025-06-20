@@ -183,7 +183,6 @@
     // --- MAIN LOGIC ---
 
     function fetchStoryData() {
-        console.log("Fetching story data...");
         let storyData = [];
         document.querySelectorAll('div[role="button"]').forEach(div => {
             const style = div.firstElementChild.style.backgroundImage;
@@ -200,7 +199,6 @@
             }
         });
         const uniqueStoryData = Array.from(new Map(storyData.map(item => [item.id, item])).values());
-        console.log(`Found ${uniqueStoryData.length} unique stories.`);
         return uniqueStoryData;
     }
 
@@ -310,11 +308,65 @@
         updateSelectionCount();
     }
 
-    function showModal() {
+    async function showModal() {
         document.getElementById(`${APP_PREFIX}-overlay`).style.display = 'flex';
         document.getElementById(`${APP_PREFIX}-launcher`).style.display = 'none';
-        const stories = fetchStoryData();
-        renderStories(stories);
+
+        const grid = document.getElementById(`${APP_PREFIX}-grid`);
+        const statusDiv = document.getElementById(`${APP_PREFIX}-status`);
+        const originalStatusHTML = statusDiv.innerHTML;
+
+        grid.innerHTML = '<p>Loading stories, please wait. Scrolling to find items...</p>';
+
+        let allStoriesMap = new Map();
+        let previousStoryCount = -1;
+        const maxScrolls = 25; // Safety break after 25 scrolls
+        const targetCount = 50; // Aim for at least 50 stories
+        let currentScroll = 0;
+        let scrollsWithoutNewStories = 0;
+
+        // Keep scrolling as long as we haven't hit our limits and we are still finding new stories.
+        // We will stop if we have 2 consecutive scrolls that find no new items.
+        while (currentScroll < maxScrolls && allStoriesMap.size < targetCount && scrollsWithoutNewStories < 2) {
+            previousStoryCount = allStoriesMap.size;
+
+            statusDiv.textContent = `Found ${allStoriesMap.size} stories. Scrolling...`;
+            window.scrollTo(0, document.body.scrollHeight);
+
+            // Wait for the loading spinner to disappear by polling the DOM.
+            statusDiv.textContent = `Found ${allStoriesMap.size} stories. Waiting for new items to load...`;
+            const waitStartTime = Date.now();
+            while (document.querySelector('svg[aria-label="Loading..."]') && (Date.now() - waitStartTime < 15000)) { // 15s safety timeout
+                await new Promise(resolve => setTimeout(resolve, 250)); // Check for spinner every 250ms
+            }
+
+            // A final small delay to ensure DOM has settled after loading.
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const newStories = fetchStoryData();
+            newStories.forEach(story => allStoriesMap.set(story.id, story));
+            
+            const stories = Array.from(allStoriesMap.values());
+            renderStories(stories);
+
+            if (allStoriesMap.size > previousStoryCount) {
+                scrollsWithoutNewStories = 0; // Reset because we found new stories.
+            } else {
+                scrollsWithoutNewStories++; // Increment because this scroll yielded nothing.
+            }
+
+            currentScroll++;
+        }
+
+        const finalStories = Array.from(allStoriesMap.values());
+        statusDiv.innerHTML = originalStatusHTML; // Restore original status area
+        updateSelectionCount(); // Update for the final set of stories
+
+        if (finalStories.length === 0) {
+            grid.innerHTML = '<p>No stories found. Please make sure you are on your Story Archive page.</p>';
+        } else {
+            console.log(`Finished loading. Found ${finalStories.length} stories.`);
+        }
     }
     
     function hideModal() {
