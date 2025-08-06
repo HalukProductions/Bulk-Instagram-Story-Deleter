@@ -1,8 +1,6 @@
 Instagram Story Archive Bulk Deleter
 A simple, browser-based script to help you bulk-delete stories from your Instagram archive. This tool injects a clean, easy-to-use UI directly onto the Instagram archive page, allowing you to visually select and delete multiple stories at once without needing to install any browser extensions or provide your login credentials to a third party.
 
-(Optional: You can take a screenshot of the tool in action and replace the link above to show users what it looks like.)
-
 ✨ Features
 No Installation Needed: Runs entirely in your browser's developer console.
 
